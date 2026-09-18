@@ -1,0 +1,15 @@
+---
+version: null
+meta:
+  environment: python
+  toolchain:
+    name: pip
+    version: 3.12
+build:
+  requirementsPath: requirements.txt
+  useCache: true
+run:
+  persistenceMount: /data
+  command: /app/venv/bin/python -u manage.py migrate && /app/venv/bin/python -u manage.py run_scheduler & /app/venv/bin/gunicorn config.wsgi:application --bind 0.0.0.0:80 --timeout 3000
+  containerPort: 80
+serviceType: compute
