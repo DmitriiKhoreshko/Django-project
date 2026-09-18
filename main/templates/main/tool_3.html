@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+    <h1 class="main-title">Удаление фона</h1>
+    
+    <div style="background: #f8fafc; border: 2px dashed #cbd5e1; padding: 40px; border-radius: 12px; text-align: center; margin-bottom: 25px;">
+        <form method="POST" enctype="multipart/form-data" id="upload-form">
+            {% csrf_token %}
+            <input type="file" name="images" id="file-input" multiple accept="image/*" style="display: none;">
+            <label for="file-input" class="btn btn-primary" style="cursor: pointer; padding: 15px 30px;">
+                📁 Выбрать изображения
+            </label>
+            <p id="file-count" style="margin-top: 10px; color: #64748b; font-size: 14px;">Файлы не выбраны</p>
+            <button type="submit" id="submit-btn" class="btn btn-success">
+                <span class="spinner" id="btn-spinner"></span>
+                <span id="btn-text">🚀 Начать обработку</span>
+            </button>
+        </form>
+    </div>
+
+    {% if tasks %}
+        <div style="margin-bottom: 25px; display: flex; gap: 12px; justify-content: flex-end; align-items: center;">
+            {% if all_tasks_completed %}
+                <a href="{% url 'download_all_zip' %}" class="btn btn-primary" style="background: #4f46e5;">
+                    📦 Скачать архив (.zip) <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 6px; margin-left: 8px;">{{ total_completed }} шт.</span>
+                </a>
+            {% else %}
+                <span style="font-size: 13px; color: #f59e0b; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                    <span class="spinner" style="display: inline-block; border-color: #f59e0b; border-bottom-color: transparent;"></span>
+                    Обработка... (Готово: {{ total_completed }})
+                </span>
+            {% endif %}
+            <a href="{% url 'clear_history' %}" onclick="return confirm('Удалить историю?')" class="btn btn-danger">🗑️ Очистить</a>
+        </div>
+
+        <div class="tasks-grid">
+            {% for task in tasks %}
+            <div class="task-item">
+                <div class="img-container">
+                    <img src="{% if task.status == 'completed' and task.result %}{{ task.result.url }}{% else %}{{ task.image.url }}{% endif %}" 
+                         style="max-width: 100%; max-height: 100%; object-fit: contain; {% if task.status != 'completed' %}opacity: 0.4;{% endif %}">
+                </div>
+                <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 11px; font-weight: 800; color: {% if task.status == 'completed' %}#10b981{% elif task.status == 'error' %}#ef4444{% else %}#f59e0b{% endif %}">
+                        ● {{ task.get_status_display }}
+                    </span>
+                    {% if task.status == 'completed' %}
+                        <a href="{{ task.result.url }}" download class="btn btn-primary" style="padding: 4px 8px; font-size: 11px;">Скачать</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const fileInput = document.getElementById('file-input');
+    const submitBtn = document.getElementById('submit-btn');
+    const uploadForm = document.getElementById('upload-form');
+
+    fileInput.onchange = function() {
+        const fileCount = this.files.length;
+        document.getElementById('file-count').innerHTML = fileCount > 0 ? "Выбрано файлов: " + fileCount : "Файлы не выбраны";
+        submitBtn.style.display = fileCount > 0 ? "inline-flex" : "none";
+    };
+
+    uploadForm.onsubmit = function() {
+        submitBtn.classList.add('btn-loading');
+        document.getElementById('btn-spinner').style.display = 'inline-block';
+        document.getElementById('btn-text').innerText = 'Загрузка...';
+    };
+
+    {% if tasks %}
+        // Автообновление если есть задачи в очереди
+        let isProcessing = {% if all_tasks_completed %}false{% else %}true{% endif %};
+        if (isProcessing) {
+            setTimeout(() => { location.reload(); }, 3000);
+        }
+    {% endif %}
+</script>
+{% endblock %}

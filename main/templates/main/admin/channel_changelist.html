@@ -1,0 +1,10 @@
+{% extends "admin/change_list.html" %}
+{% block object-tools-items %}
+    <li>
+        <a href="import-channels/" class="addlink">Массовый импорт</a>
+    </li>
+    <li>
+        <a href="bulk-delete/" class="deletelink" style="background-color: #ba2121;">Массовое удаление</a>
+    </li>
+    {{ block.super }}
+{% endblock %}

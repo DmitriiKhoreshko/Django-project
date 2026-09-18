@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<h1 class="main-title">Инструмент 2</h1>
+
+<div class="dev-placeholder">
+    <div class="dev-icon">🛠️</div>
+    <h2 style="color: #475569; margin-bottom: 10px;">Раздел в разработке</h2>
+    <p>Мы работаем над новым функционалом. Скоро здесь появится что-то крутое!</p>
+    <a href="{% url 'index' %}" style="margin-top: 20px; color: #007bff; text-decoration: none; font-weight: 600;">
+        ← Вернуться к Outlier Finder
+    </a>
+</div>
+
+{% endblock %}

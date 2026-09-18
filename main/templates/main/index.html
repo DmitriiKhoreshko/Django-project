@@ -1,0 +1,502 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    /* Стили для управления и модального окна */
+    .controls-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 25px;
+        background: #ffffff;
+        padding: 15px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(15, 23, 42, 0.7);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        background: white;
+        width: 95%;
+        max-width: 700px;
+        max-height: 85vh;
+        border-radius: 16px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    .modal-header {
+        padding: 20px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f8fafc;
+    }
+
+    .modal-body {
+        padding: 25px;
+        overflow-y: auto;
+    }
+
+    .modal-tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 12px;
+    }
+
+    .tab-btn {
+        padding: 10px 18px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        background: #f1f5f9;
+        color: #64748b;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+        background: #4f46e5;
+        color: white;
+    }
+
+    .channel-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        border-bottom: 1px solid #f1f5f9;
+        transition: background 0.2s;
+    }
+
+    .channel-item:hover {
+        background: #f8fafc;
+    }
+
+    /* Стили таблицы */
+    .outlier-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+    }
+
+    .outlier-table th {
+        background: #f8fafc;
+        padding: 12px 15px;
+        text-align: left;
+        font-size: 13px;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .outlier-table td {
+        padding: 15px;
+        border-top: 1px solid #f1f5f9;
+        vertical-align: middle;
+    }
+
+    .video-thumb {
+        width: 120px;
+        border-radius: 8px;
+        display: block;
+    }
+
+    .score-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 14px;
+    }
+
+    .score-high { background: #dcfce7; color: #166534; }
+    .score-med { background: #fef9c3; color: #854d0e; }
+
+    .btn-manage {
+        background: #6366f1;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-delete:hover {
+        background-color: #dc2626; /* более темный красный при наведении */
+    }
+</style>
+
+<h1 class="main-title">YouTube Outlier Finder</h1>
+<div class="type-switcher" style="margin-bottom: 20px; display: flex; gap: 10px;">
+    <a href="?niche={{ selected_niche }}&type=shorts" 
+       class="tab-btn {% if request.GET.type != 'long' %}active{% endif %}">
+       📱 Shorts
+    </a>
+    <a href="?niche={{ selected_niche }}&type=long" 
+       class="tab-btn {% if request.GET.type == 'long' %}active{% endif %}">
+       🎬 Видео
+    </a>
+</div>
+<div class="controls-row">
+    <div style="display: flex; gap: 8px; align-items: center;">
+        <form method="GET" style="margin: 0; display: flex; align-items: center;">
+            <select name="niche" onchange="this.form.submit()" class="niche-select" style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; font-weight: 600; height: 42px; min-width: 150px; box-sizing: border-box;">
+                <option value="">-- Ниша --</option>
+                {% for niche in niches %}
+                    <option value="{{ niche.id }}" {% if selected_niche == niche.id|stringformat:"i" %}selected{% endif %}>
+                        {{ niche.name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+
+        {% if perms.main.can_add_niche %}
+            <button onclick="openNicheModal()" class="btn-manage" 
+                    style="background: #10b981; color: white; border: none; padding: 0; width: 42px; height: 42px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;" 
+                    title="Добавить нишу">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
+        {% endif %}
+        
+        {% if is_admin and selected_niche and selected_niche != 'None' %}
+            <a href="{% url 'delete_niche' selected_niche %}" 
+            onclick="return confirm('Вы уверены, что хотите полностью удалить эту нишу?')" 
+            class="btn-delete" 
+            style="height: 42px; width: 42px; padding: 0; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 8px; text-decoration: none; background: #ef4444; color: white;" 
+            title="Удалить нишу">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </a>
+        {% endif %}
+
+        {% if selected_niche and selected_niche != 'None' %}
+            <button onclick="openModal()" class="btn-manage" style="height: 42px; box-sizing: border-box;">
+                ⚙️ ({{ my_channels|length }})
+            </button>
+        {% endif %}
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+        {% if selected_niche and selected_niche != 'None' %}
+            <div style="display: flex; align-items: center; gap: 8px;">
+                {% if is_admin or current_limit_count < max_limit %}
+                    <a href="{% url 'update_niche' selected_niche %}" class="btn btn-primary">🔄 Обновить нишу</a>
+                {% else %}
+                    <button class="btn btn-primary" disabled style="opacity: 0.6; cursor: not-allowed;" title="Лимит исчерпан">🔄 Лимит исчерпан</button>
+                {% endif %}
+
+                {% if not is_admin %}
+                    <span style="font-size: 13px; color: #64748b; background: #f1f5f9; padding: 8px 12px; border-radius: 8px; font-weight: 600;">
+                        {{ current_limit_count }} / {{ max_limit }}
+                    </span>
+                {% endif %}
+            </div>
+        {% endif %}
+        
+        {% if is_admin %}
+            <a href="{% url 'update_all' %}" 
+               onclick="return confirm('Обновить абсолютно ВСЕ каналы системы?')" 
+               class="btn btn-success" style="background-color: #10b981;">🚀 Обновить всё</a>
+        {% endif %}
+    </div>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+        <div style="padding: 14px 20px; margin-bottom: 20px; border-radius: 10px; font-size: 14px; font-weight: 500;
+            {% if message.tags == 'error' %} background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; 
+            {% else %} background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; {% endif %}">
+            {% if message.tags == 'error' %}⚠️{% else %}✅{% endif %} {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+{% if results %}
+    <div style="margin-bottom: 15px; color: #64748b; font-size: 14px;">
+        {% if results.0.channel.updated_at %}
+            📅 Последнее обновление: <strong>{{ results.0.channel.updated_at|date:"d.m.Y H:i" }}</strong>
+        {% endif %}
+    </div>
+
+    <table class="outlier-table">
+        <thead>
+            <tr>
+                <th>Превью</th>
+                <th>Видео / Канал</th>
+                <th>Опубликовано</th>
+                <th style="text-align: center;">Score</th>
+                <th>Просмотры</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in results %}
+            <tr>
+                <td style="width: 140px;">
+                    <img src="{{ item.thumbnail }}" class="video-thumb" alt="thumb">
+                </td>
+                <td>
+                    <a href="https://www.youtube.com/watch?v={{ item.video_id }}" target="_blank" class="video-link" style="font-weight: 600; text-decoration: none; color: #1e293b;">
+                        {{ item.title }}
+                    </a>
+                    <div style="color: #64748b; font-size: 12px; margin-top: 5px;">
+                        👤 {{ item.channel.title }}
+                    </div>
+                </td>
+                <td style="color: #64748b; font-size: 13px;">
+                    {{ item.published_at|timesince }} назад
+                </td>
+                <td style="text-align: center;">
+                    <div class="score-badge {% if item.score >= 1.5 %}score-high{% elif item.score >= 1.0 %}score-med{% endif %}">
+                        {{ item.score|floatformat:1 }}x
+                    </div>
+                </td>
+                <td>
+                    <div style="font-weight: 700; color: #1e293b;">{{ item.views }}</div>
+                    <div style="font-size: 11px; color: #94a3b8;">ср: {{ item.avg_at_moment }}</div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table> {% if results.has_other_pages %}
+    <div class="pagination">
+        {% if results.has_previous %}
+            <a href="?niche={{ selected_niche }}&type={{ current_type }}&page=1" class="page-link">&laquo;</a>
+            <a href="?niche={{ selected_niche }}&type={{ current_type }}&page={{ results.previous_page_number }}" class="page-link">‹</a>
+        {% endif %}
+
+        {% for num in results.paginator.page_range %}
+            {% if results.number == num %}
+                <span class="page-link active">{{ num }}</span>
+            {% elif num > results.number|add:'-3' and num < results.number|add:'3' %}
+                <a href="?niche={{ selected_niche }}&type={{ current_type }}&page={{ num }}" class="page-link">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if results.has_next %}
+            <a href="?niche={{ selected_niche }}&type={{ current_type }}&page={{ results.next_page_number }}" class="page-link">›</a>
+            <a href="?niche={{ selected_niche }}&type={{ current_type }}&page={{ results.paginator.num_pages }}" class="page-link">&raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+{% else %}
+    <div style="padding: 80px 20px; text-align: center; background: #ffffff; border-radius: 16px; border: 2px dashed #e2e8f0; margin-top: 20px;">
+        <div style="font-size: 48px; margin-bottom: 15px;">🔍</div>
+        <h3 style="color: #1e293b; margin: 0;">Ниша не выбрана или в ней нет ваших каналов</h3>
+        <p style="color: #64748b; margin-top: 10px; max-width: 400px; margin-left: auto; margin-right: auto;">
+            Выберите нишу или добавьте ссылки на каналы через меню «Мои каналы», чтобы начать отслеживание.
+        </p>
+    </div>
+{% endif %}
+
+<div id="channelsModal" class="modal-overlay" onclick="closeModalOutside(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h2 style="margin: 0; font-size: 18px; color: #1e293b;">⚙️ Настройки списков</h2>
+            <button onclick="closeModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #94a3b8;">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+            <div class="modal-tabs">
+                <button class="tab-btn active" onclick="switchTab(event, 'tab-list')">Мой список</button>
+                <button class="tab-btn" onclick="switchTab(event, 'tab-import')">📥 Импорт</button>
+                <button class="tab-btn" onclick="switchTab(event, 'tab-delete')">🗑 Удаление</button>
+            </div>
+
+            <div id="tab-list" class="tab-content">
+            <div style="margin-bottom: 15px; position: relative;">
+                <input type="text" id="channelSearchInput" onkeyup="filterChannels()" 
+                    placeholder="🔍 Поиск по названию канала..." 
+                    style="width: 100%; padding: 10px 15px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 14px; outline: none; transition: border 0.2s;">
+            </div>
+
+            {% if my_channels %}
+                <div id="channelsListContainer" style="max-height: 350px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 8px;">
+                    {% for channel in my_channels %}
+                        <div class="channel-item js-channel-row" data-name="{{ channel.title|default:channel.channel_id|lower }}" 
+                            style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #f1f5f9;">
+                            
+                            <div style="display: flex; flex-direction: column;">
+                                <span class="channel-name" style="font-weight: 500; color: #334155; font-size: 14px;">
+                                    {{ channel.title|default:channel.channel_id }}
+                                </span>
+                                <a href="https://youtube.com/channel/{{ channel.channel_id }}" target="_blank" style="font-size: 11px; color: #6366f1; text-decoration: none;">
+                                    Перейти на YouTube ↗
+                                </a>
+                            </div>
+                            
+                            <a href="{% url 'delete_single_channel' channel.pk %}" 
+                            onclick="return confirm('Удалить этот канал из вашего списка?')"
+                            style="background: #fee2e2; color: #ef4444; padding: 6px 10px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 600;">
+                                ✕
+                            </a>
+                        </div>
+                    {% endfor %}
+                    
+                    <div id="noResultsMsg" style="display: none; text-align: center; padding: 20px; color: #94a3b8; font-size: 14px;">
+                        Ничего не найдено 😕
+                    </div>
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 40px; color: #94a3b8;">
+                    У вас пока нет добавленных каналов.
+                </div>
+            {% endif %}
+        </div>
+
+            <div id="tab-import" class="tab-content" style="display: none;">
+                <form action="{% url 'import_channels_url' %}" method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="niche_id" value="{{ selected_niche }}">
+                    <p style="font-size: 13px; color: #64748b; margin-bottom: 10px;">Вставьте ссылки на каналы (по одной в строке). Мы автоматически определим ID.</p>
+                    <textarea name="urls" rows="8" placeholder="https://www.youtube.com/@handle&#10;https://www.youtube.com/channel/UC..." 
+                        style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 13px; resize: vertical;"></textarea>
+                    <button type="submit" class="btn btn-success" style="width: 100%; margin-top: 15px; padding: 12px; font-weight: 700;">🚀 Начать импорт</button>
+                </form>
+            </div>
+
+            <div id="tab-delete" class="tab-content" style="display: none;">
+                <form action="{% url 'bulk_delete_url' %}" method="POST">
+                    {% csrf_token %}
+                    <p style="font-size: 13px; color: #ef4444; margin-bottom: 10px;">Вставьте ссылки на каналы, которые нужно убрать из вашего списка.</p>
+                    <textarea name="urls" rows="8" placeholder="https://www.youtube.com/@handle&#10;https://www.youtube.com/channel/UC..." 
+                        style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 13px;"></textarea>
+                    <button type="submit" class="btn btn-danger" style="width: 100%; margin-top: 15px; background: #ef4444;color: #ffffff; padding: 12px; font-weight: 700;">🗑 Удалить выбранные</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="nicheModal" class="modal-overlay" onclick="closeNicheModalOutside(event)">
+    <div class="modal-content" style="max-width: 400px; border-radius: 20px;" onclick="event.stopPropagation()">
+        
+        <div class="modal-header" style="padding: 24px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin: 0; font-size: 20px; color: #1e293b; font-weight: 700;">Создать нишу</h2>
+            <button onclick="closeNicheModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8; line-height: 1;">&times;</button>
+        </div>
+
+        <div class="modal-body" style="padding: 24px;">
+            <form action="{% url 'create_niche' %}" method="POST" style="margin: 0;">
+                {% csrf_token %}
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 14px; font-weight: 600; color: #64748b; margin-bottom: 8px;">Название ниши</label>
+                    <input type="text" name="name" required placeholder="Напр: Крипта" 
+                           style="width: 100%; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; font-size: 15px; outline: none; transition: border-color 0.2s; box-sizing: border-box;">
+                </div>
+
+                <button type="submit" class="btn-manage" 
+                        style="width: 100%; background: #10b981; color: white; border: none; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <span style="font-size: 1.1em;">✅</span> Сохранить нишу
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+    function openModal() {
+        document.getElementById('channelsModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden'; // Запрет прокрутки фона
+    }
+
+    function closeModal() {
+        document.getElementById('channelsModal').style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+
+    function closeModalOutside(e) {
+        if (e.target.id === 'channelsModal') closeModal();
+    }
+
+    function switchTab(event, tabId) {
+        // Скрываем все вкладки
+        const contents = document.querySelectorAll('.tab-content');
+        contents.forEach(c => c.style.display = 'none');
+        
+        // Показываем нужную
+        document.getElementById(tabId).style.display = 'block';
+        
+        // Снимаем активный класс со всех кнопок
+        const btns = document.querySelectorAll('.tab-btn');
+        btns.forEach(b => b.classList.remove('active'));
+        
+        // Добавляем активный класс нажатой кнопке
+        event.currentTarget.classList.add('active');
+    }
+
+    function filterChannels() {
+        // Получаем значение из поля поиска
+        let input = document.getElementById('channelSearchInput');
+        let filter = input.value.toLowerCase();
+        
+        // Получаем все строки каналов
+        let rows = document.getElementsByClassName('js-channel-row');
+        let noResults = document.getElementById('noResultsMsg');
+        let foundAny = false;
+
+        for (let i = 0; i < rows.length; i++) {
+            // Берем имя канала из data-атрибута (он уже в нижнем регистре)
+            let channelName = rows[i].getAttribute('data-name');
+            
+            if (channelName.includes(filter)) {
+                rows[i].style.display = "flex";
+                foundAny = true;
+            } else {
+                rows[i].style.display = "none";
+            }
+        }
+
+        // Показываем сообщение "Ничего не найдено", если список пуст
+        noResults.style.display = foundAny ? "none" : "block";
+    }
+
+    function openNicheModal() {
+        document.getElementById('nicheModal').style.display = 'flex';
+    }
+
+    function closeNicheModal() {
+        document.getElementById('nicheModal').style.display = 'none';
+    }
+
+    function closeNicheModalOutside(e) {
+        if (e.target.id === 'nicheModal') closeNicheModal();
+    }
+
+</script>
+
+{% endblock %}

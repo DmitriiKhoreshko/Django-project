@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход | Инфографика</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        
+        /* Стили для иконки */
+        .icon-container { text-align: center; margin-bottom: 15px; color: #1877f2; }
+        .icon-container svg { width: 60px; height: 60px; }
+        
+        .login-card h2 { text-align: center; color: #1c1e21; margin-bottom: 30px; font-size: 26px; margin-top: 0; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #4b4f56; }
+        .form-group input { width: 100%; padding: 12px; border: 1px solid #dddfe2; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        .form-group input:focus { border-color: #1877f2; outline: none; box-shadow: 0 0 0 2px #e7f3ff; }
+        .btn-submit { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 6px; font-size: 17px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-submit:hover { background-color: #0056b3; }
+        .error-list { background: #ffebe9; border: 1px solid rgba(255,129,130,0.4); color: #b01919; padding: 10px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; list-style: none; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="icon-container">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 20V10"></path>
+                <path d="M12 20V4"></path>
+                <path d="M6 20v-6"></path>
+            </svg>
+        </div>
+
+        <h2>Инфографика</h2>
+        
+        <form method="post">
+            {% csrf_token %}
+            {% if form.errors %}
+                <div class="error-list">Неверное имя пользователя или пароль</div>
+            {% endif %}
+            <div class="form-group">
+                <label>Логин</label>
+                <input type="text" name="username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label>Пароль</label>
+                <input type="password" name="password" required>
+            </div>
+            <button type="submit" class="btn-submit">Войти</button>
+        </form>
+    </div>
+</body>
+</html>

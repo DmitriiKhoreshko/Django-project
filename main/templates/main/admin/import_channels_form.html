@@ -1,0 +1,10 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Массовый импорт каналов</h1>
+<p>Вставьте ссылки на каналы (по одной в строке), например: https://www.youtube.com/@channel</p>
+<form method="POST">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Начать импорт" class="default">
+</form>
+{% endblock %}

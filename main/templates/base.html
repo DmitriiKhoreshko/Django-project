@@ -1,0 +1,281 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Инфографика{% endblock %}</title>
+    
+    <link rel="icon" type="image/png" href="{% static 'ico/favicon.ico' %}">
+
+    <style>
+    /* --- ГЛОБАЛЬНЫЕ СТИЛИ И КОНТЕЙНЕР --- */
+    * {
+        box-sizing: border-box;
+    }
+    
+    body { background-color: #f8fafc; margin: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+
+    .btn-delete {
+        background: #ef4444; /* красный цвет */
+        color: white;
+        padding: 10px 16px; /* такие же отступы, как у остальных */
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: background-color 0.2s;
+    }
+
+    .main-container { 
+        max-width: 1200px; 
+        margin: 20px auto; 
+        padding: 0 15px; 
+    }
+
+    .dashboard-card { 
+        background: white; 
+        border-radius: 12px; 
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
+        padding: 25px; 
+        border: 1px solid #eef2f6; 
+        min-height: 200px; 
+    }
+
+    .main-title { 
+        font-size: 28px; 
+        color: #1a1f36; 
+        margin: 0 0 20px 0; 
+        font-weight: 800; 
+        letter-spacing: -0.5px; 
+    }
+
+    /* --- НОВАЯ ВЕРХНЯЯ ПАНЕЛЬ (ВКЛАДКИ И ЮЗЕР) --- */
+    .top-nav-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .tabs-container {
+        display: flex;
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 10px;
+        gap: 4px;
+        width: fit-content;
+    }
+
+    .user-side-menu {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .tab-link {
+        text-decoration: none;
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        color: #64748b;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .tab-link:hover {
+        color: #1a1f36;
+        background: rgba(255, 255, 255, 0.5);
+    }
+
+    .tab-link.active {
+        background: white;
+        color: #007bff;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Стиль для админки как отдельной кнопки-вкладки */
+    .btn-admin-tab {
+        background: #fff;
+        color: #64748b;
+        border: 1px solid #e2e8f0;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        transition: 0.2s;
+    }
+    .btn-admin-tab:hover {
+        background: #f8fafc;
+        color: #1a1f36;
+        border-color: #cbd5e1;
+    }
+
+    /* Красивое имя пользователя */
+    .user-profile-badge {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 5px 12px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 50px;
+    }
+    .user-avatar-circle {
+        width: 26px;
+        height: 26px;
+        background: #007bff;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .username-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #334155;
+    }
+
+    /* --- ВАШИ ОРИГИНАЛЬНЫЕ СТИЛИ (КНОПКИ, ТАБЛИЦЫ, СЕТКА) --- */
+    .controls-row { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; margin-bottom: 25px; }
+
+    .btn { 
+        text-decoration: none; padding: 10px 18px; border-radius: 8px; 
+        font-size: 14px; font-weight: 600; transition: all 0.2s; 
+        display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer;
+    }
+
+    .btn-primary { background: #007bff; color: white; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-danger { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+    .btn-loading { background: #94a3b8 !important; cursor: not-allowed; }
+
+    .niche-select { 
+        padding: 10px 15px; border-radius: 8px; border: 1px solid #dcdfe6; 
+        background: #fff; font-size: 14px; color: #606266; cursor: pointer; 
+        min-width: 200px; transition: 0.2s; 
+    }
+    .niche-select:hover { border-color: #409eff; }
+
+    .outlier-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px; }
+    .outlier-table th { background: #f8f9fa; color: #8492a6; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; padding: 15px; border-bottom: 2px solid #edf2f7; text-align: left; }
+    .outlier-table td { padding: 16px; border-bottom: 1px solid #f1f4f8; vertical-align: middle; }
+
+    .video-thumb { width: 120px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .video-link { text-decoration: none; color: #1a1f36; font-weight: 700; font-size: 15px; display: block; margin-bottom: 4px; }
+
+    .score-badge { padding: 6px 12px; border-radius: 20px; font-weight: 800; font-size: 15px; display: inline-block; }
+    .score-high { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+    .score-med { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+
+    .stats-views { font-size: 16px; font-weight: 800; color: #1a1f36; }
+    .stats-avg { color: #94a3b8; font-size: 12px; margin-top: 2px; }
+
+    .tasks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+    .task-item { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; background: #fff; }
+    .img-container { height: 160px; background: #f1f5f9; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+
+    .dev-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; text-align: center; color: #94a3b8; }
+    .dev-icon { font-size: 64px; margin-bottom: 20px; background: #f8fafc; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px dashed #e2e8f0; }
+
+    #submit-btn { display: none; margin-top: 15px; animation: fadeIn 0.3s ease; }
+    .spinner { width: 16px; height: 16px; border: 2px solid #ffffff; border-bottom-color: transparent; border-radius: 50%; display: none; animation: rotation 1s linear infinite; }
+
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 5px;
+        margin: 25px 0;
+    }
+
+    .page-link {
+        padding: 8px 16px;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        text-decoration: none;
+        color: #64748b;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .page-link:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+    }
+
+    .page-link.active {
+        background: #4f46e5;
+        color: white;
+        border-color: #4f46e5;
+    }
+
+    .page-link.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: #f1f5f9;
+    }
+    @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    
+    {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="top-nav-bar">
+        
+        <div class="tabs-container">
+            <a href="{% url 'index' %}" class="tab-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+                <span class="tab-icon">📈</span> Outlier Finder
+            </a>
+            <a href="{% url 'tool_2' %}" class="tab-link {% if request.resolver_match.url_name == 'tool_2' %}active{% endif %}">
+                <span class="tab-icon">🛠️</span> Инструмент 2
+            </a>
+            <a href="{% url 'tool_3' %}" class="tab-link {% if request.resolver_match.url_name == 'tool_3' %}active{% endif %}">
+                <span class="tab-icon">⚙️</span> Удаление фона
+            </a>
+            <a href="{% url 'tool_4' %}" class="tab-link {% if request.resolver_match.url_name == 'tool_4' %}active{% endif %}">
+                <span class="tab-icon">📊</span> Анализ отчетности
+            </a>
+        </div>
+
+        <div class="user-side-menu">
+            {% if user.is_staff %}
+                <a href="/admin/" class="btn-admin-tab">
+                    🛡️ Админ панель
+                </a>
+            {% endif %}
+
+            <div class="user-profile-badge">
+                <div class="user-avatar-circle">
+                    {{ user.username|slice:":1"|upper }}
+                </div>
+                <span class="username-label">{{ user.username }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-card">
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+{% block extra_js %}{% endblock %}
+
+</body>
+</html>

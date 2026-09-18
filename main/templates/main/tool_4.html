@@ -1,0 +1,631 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    
+    :root {
+        --primary: #4f46e5;
+        --primary-hover: #4338ca;
+        --border-color: #e5e7eb;
+        --text-muted: #6b7280;
+        --text-main: #111827;
+    }
+    @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+
+    .progress-fill {
+        transition: width 0.3s ease;
+    }
+    .progress-fill.progress-indefinite {
+        width: 100% !important;
+        background: linear-gradient(90deg, var(--primary) 25%, #818cf8 50%, var(--primary) 75%);
+        background-size: 200% 100%;
+        animation: loading-shimmer 2s infinite linear;
+    }
+
+    @keyframes loading-shimmer {
+        from { background-position: 200% 0; }
+        to { background-position: -200% 0; }
+    }
+    .data-table th {
+        position: relative;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.2s;
+        white-space: nowrap;
+    }
+
+    .data-table th:hover {
+        background: #f3f4f6;
+    }
+
+    /* Контейнер для текста и иконки */
+    .sort-wrapper {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px; /* Чуть больше отступ от текста */
+    }
+
+    /* Стиль иконок */
+    .sort-icon {
+        width: 18px;
+        height: 18px;
+        fill: currentColor;
+        opacity: 0.25; /* Неактивные иконки будут полупрозрачными */
+        transition: all 0.2s ease;
+    }
+
+    /* Подсветка активной колонки */
+    /* Активное состояние */
+    th:hover .sort-icon {
+        opacity: 0.6;
+        transform: scale(1.1); /* Легкое увеличение */
+    }
+        
+    
+    th.active-sort .sort-icon {
+        opacity: 1;
+        color: var(--primary);
+        transform: scale(1.1);
+    }
+
+    .page-wrapper {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .analysis-wrapper {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 30px;
+        align-items: start;
+    }
+
+    .sidebar-card, .main-card {
+        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .sidebar-card { padding: 24px; }
+    .main-card { padding: 30px; min-height: 600px; display: flex; flex-direction: column; }
+
+    /* --- Стилизация кнопок и инпутов --- */
+    .custom-file-input {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        width: 100%;
+        margin-bottom: 15px;
+    }
+
+    /* Стилизация стандартной кнопки выбора файла */
+    .custom-file-input::-webkit-file-upload-button {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 8px 12px;
+        cursor: pointer;
+        margin-right: 10px;
+        transition: 0.2s;
+        font-weight: 500;
+    }
+    .custom-file-input::-webkit-file-upload-button:hover {
+        background: #f9fafb;
+        border-color: #d1d5db;
+    }
+
+    .btn-submit {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 12px;
+        border-radius: 8px;
+        font-weight: 600;
+        width: 100%;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    .btn-submit:hover { background: var(--primary-hover); }
+
+    /* --- Список отчетов и переименование --- */
+    .report-item {
+        padding: 12px;
+        background: #f9fafb;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        border: 1px solid transparent;
+        transition: 0.2s;
+    }
+    .report-item.active {
+        border-color: var(--primary);
+        background: #eef2ff;
+    }
+
+    .rename-input {
+        width: 100%;
+        padding: 6px;
+        border: 1px solid var(--primary);
+        border-radius: 6px;
+        margin-bottom: 8px;
+        font-size: 0.85rem;
+    }
+
+    /* --- Остальное --- */
+    .empty-state {
+        flex: 1; display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        text-align: center; color: var(--text-muted);
+    }
+
+    .data-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+    .data-table th { text-align: left; padding: 12px 16px; background: #f9fafb; color: var(--text-muted); border-bottom: 2px solid var(--border-color); }
+    .data-table td { padding: 16px; border-bottom: 1px solid var(--border-color); }
+
+    .progress-area { margin-top: 15px; display: none; }
+    .progress-bg { width: 100%; height: 8px; background: #eee; border-radius: 10px; overflow: hidden; }
+    .progress-fill { width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease; }
+</style>
+{{ details|json_script:"artist-data-json" }}
+<div class="page-wrapper">
+    <h1 class="main-title" style="margin-bottom: 30px;">Анализ отчетности</h1>
+
+    <div class="analysis-wrapper">
+        <aside class="sidebar-card">
+            <h3 style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px; letter-spacing: 0.05em;">ЗАГРУЗИТЬ НОВЫЙ</h3>
+            
+            <form id="upload-form" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="file" name="report_file" class="custom-file-input" required>
+                <button type="submit" class="btn-submit">Начать анализ</button>
+            </form>
+
+            <div id="loading-area" class="progress-area">
+                <p style="font-size: 0.75rem; margin-bottom: 5px; color: var(--primary); font-weight: 600;">Анализ...</p>
+                <div class="progress-bg">
+                    <div id="progress-bar" class="progress-fill"></div>
+                </div>
+            </div>
+
+            <hr style="margin: 25px 0; border: 0; border-top: 1px solid var(--border-color);">
+
+            <h3 style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px; letter-spacing: 0.05em;">ВАШИ ОТЧЕТЫ</h3>
+            <div class="report-list">
+                {% for report in reports %}
+                    <div class="report-item {% if active_report.id == report.id %}active{% endif %} {% if report.status == 'processing' %}is-loading{% endif %}">
+                        
+                        {% if report.status == 'processing' %}
+                            <div style="display: flex; flex-direction: column; gap: 5px;">
+                                <strong style="display: block; font-size: 0.85rem; color: var(--text-muted); word-break: break-all;">
+                                    {{ report.title }}
+                                </strong>
+                                <div style="display: flex; align-items: center; justify-content: space-between;">
+                                    <div class="mini-loader" style="font-size: 0.8rem; color: #f59e0b;">
+                                        <span class="spinner"></span> Анализ...
+                                    </div>
+                                    <a href="?delete={{ report.id }}" 
+                                    style="text-decoration: none; color: #ef4444; font-size: 0.8rem; font-weight: 600;" 
+                                    onclick="return confirm('Отменить анализ и удалить файл?')">
+                                        Отменить
+                                    </a>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div id="view-mode-{{ report.id }}">
+                                <strong style="display: block; font-size: 0.85rem; word-break: break-all; margin-bottom: 8px;">
+                                    {{ report.title }}
+                                    <span onclick="toggleRename('{{ report.id }}')" style="cursor: pointer; margin-left: 5px; opacity: 0.5;" title="Переименовать">✏️</span>
+                                </strong>
+                                <div style="font-size: 0.8rem;">
+                                    <a href="?view={{ report.id }}" style="text-decoration: none; color: var(--primary); font-weight: 600;">Открыть</a>
+                                    <span style="color: #ccc; margin: 0 5px;">|</span>
+                                    <a href="?delete={{ report.id }}" style="text-decoration: none; color: #ef4444;" onclick="return confirm('Удалить?')">Удалить</a>
+                                </div>
+                            </div>
+
+                            <form id="edit-mode-{{ report.id }}" method="post" style="display: none;">
+                                {% csrf_token %}
+                                <input type="hidden" name="rename_id" value="{{ report.id }}">
+                                <input type="text" name="new_title" value="{{ report.title }}" class="rename-input" style="width: 100%; margin-bottom: 5px;">
+                                <div style="display: flex; gap: 5px;">
+                                    <button type="submit" style="background: var(--primary); color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer;">Сохранить</button>
+                                    <button type="button" onclick="toggleRename('{{ report.id }}')" style="background: #e5e7eb; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer;">Отмена</button>
+                                </div>
+                            </form>
+                        {% endif %}
+
+                    </div>
+                {% empty %}
+                    <div style="text-align: center; padding: 20px; border: 2px dashed var(--border-color); border-radius: 12px; background: #f9fafb;">
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">
+                            У вас пока нет загруженных отчетов. <br>
+                            <strong>Загрузите первый файл выше</strong>
+                        </p>
+                    </div>    
+                {% endfor %}
+            </div>
+        </aside>
+
+        <main class="main-card">
+            {% if data %}
+                <div class="stats-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px;">
+                    <div style="background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); text-align: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Общий доход</span>
+                        <div style="font-size: 1.6rem; font-weight: 800; color: #10b981; margin-top: 5px;">${{ total_income|floatformat:2 }}</div>
+                    </div>
+
+                    <div style="background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); text-align: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Всего продаж</span>
+                        <div style="font-size: 1.6rem; font-weight: 800; color: var(--text-main); margin-top: 5px;">{{ total_units|floatformat:0 }}</div>
+                    </div>
+
+                    <div style="background: #ffffff; padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); text-align: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Кол-во релизов</span>
+                        <div style="font-size: 1.6rem; font-weight: 800; color: var(--primary); margin-top: 5px;">{{ total_releases }}</div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #f9fafb; padding: 15px; border-radius: 10px;">
+                    <div style="flex: 1; position: relative;">
+                        <span style="position: absolute; left: 10px; top: 10px; opacity: 0.5;">🔍</span>
+                        <input type="text" id="tableSearch" placeholder="Поиск по артисту или платформе..." 
+                            style="width: 100%; padding: 8px 8px 8px 35px; border: 1px solid #e5e7eb; border-radius: 8px; outline: none;">
+                    </div>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table class="data-table" id="analyticsTable">
+                        <thead class="bg-light">
+                            <tr>
+                                <th onclick="sortTable(0, 'text')" style="cursor:pointer;">
+                                    <div class="sort-wrapper">Артист <span class="icon-slot"></span></div>
+                                </th>
+                                <th onclick="sortTable(1, 'number')" style="cursor:pointer;">
+                                    <div class="sort-wrapper">Релизы <span class="icon-slot"></span></div>
+                                </th>
+                                <th onclick="sortTable(2, 'number')" style="cursor:pointer;">
+                                    <div class="sort-wrapper">Продажи <span class="icon-slot"></span></div>
+                                </th>
+                                <th onclick="sortTable(3, 'number')" style="cursor:pointer;">
+                                    <div class="sort-wrapper">Доход ($) <span class="icon-slot"></span></div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in data %}
+                            <tr onclick="showArtistDetails('{{ row.Release_Artist|escapejs }}')" style="cursor:pointer;">
+                                <td style="font-weight: 600; color: var(--primary);">{{ row.Release_Artist }}</td>
+                                <td>{{ row.Release_Title }}</td>
+                                <td>{{ row.Units_Sold|floatformat:0 }}</td>
+                                <td style="font-weight: 700;">${{ row.Net_Payable|floatformat:2 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <div id="artistDetailPanel" style="display:none; position: fixed; right: 0; top: 0; width: 450px; height: 100vh; background: white; box-shadow: -5px 0 15px rgba(0,0,0,0.1); z-index: 1000; padding: 30px; overflow-y: auto;">
+                        <button onclick="closeDetails()"class="btn-delete" style="float: right;">✕ Закрыть</button>
+                        <h2 id="detailArtistName">Имя Артиста</h2>
+                        <hr>
+                        <div id="detailCharts">
+                            <h4>Топ треков</h4>
+                            <ul id="topTracksList"></ul>
+                            
+                            <h4>По площадкам (Vendor)</h4>
+                            <canvas id="vendorChart"></canvas>
+                            
+                            <h4>По странам (Топ 5)</h4>
+                            <div id="countryStats"></div>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <span style="font-size: 4rem; margin-bottom: 20px;">📊</span>
+                    <h3 style="margin: 0; color: var(--text-main);">Аналитика готова к работе</h3>
+                    <p style="max-width: 320px; margin-top: 10px;">Выберите отчет слева, чтобы увидеть распределение доходов по артистам и площадкам.</p>
+                </div>
+            {% endif %}
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    // 1. Инициализируем переменную заранее
+    let artistDetails = {};
+    let currentChart = null;
+
+    // 2. Заполняем её сразу при загрузке
+    document.addEventListener('DOMContentLoaded', function() {
+        const dataElement = document.getElementById('artist-data-json');
+        if (dataElement) {
+            try {
+                artistDetails = JSON.parse(dataElement.textContent);
+                console.log("Данные успешно загружены. Ключей:", Object.keys(artistDetails).length);
+            } catch (e) {
+                console.error("Ошибка парсинга JSON:", e);
+            }
+        }
+        // Авто-сортировка по Доходу (индекс 3) при загрузке
+        if (document.getElementById("analyticsTable")) {
+            // Вызываем сортировку по доходу (индекс 3)
+            sortTable(3, 'number'); 
+        }
+        // Перенеси диагностику сюда, внутрь DOMContentLoaded
+        console.group("=== ДИАГНОСТИКА ДАННЫХ ===");
+        console.log("1. Тип artistDetails:", typeof artistDetails);
+        console.log("2. Количество ключей:", Object.keys(artistDetails).length);
+        console.groupEnd();
+    });
+
+    // 3. Твоя функция теперь будет видеть artistDetails, так как она объявлена через let в глобальной области
+    function showArtistDetails(artistName) {
+        console.log("Клик по артисту:", artistName);
+        
+        if (!artistDetails || Object.keys(artistDetails).length === 0) {
+            console.error("Данные artistDetails еще не загружены или пусты!");
+            return;
+        }
+
+        const data = artistDetails[artistName];
+
+        if (!data) {
+            console.error("Ключ не найден в artistDetails. Искомый ключ:", "'" + artistName + "'");
+            // Выведем все ключи, чтобы сравнить визуально
+            console.log("Доступные ключи в базе:", Object.keys(artistDetails));
+            return;
+        }
+        
+        // Отрисовка...
+        document.getElementById('detailArtistName').innerText = artistName;
+        document.getElementById('artistDetailPanel').style.display = 'block';
+
+        // Топ треков (Проверяем оба возможных ключа: top_titles и top_tracks)
+        const tracksList = document.getElementById('topTracksList');
+        tracksList.innerHTML = '';
+        const titles = data.top_titles || data.top_tracks || {};
+        
+        Object.entries(titles).forEach(([title, val]) => {
+            tracksList.innerHTML += `<li>${title}: <b>$${Number(val).toFixed(2)}</b></li>`;
+        });
+
+        // Страны
+        const countryDiv = document.getElementById('countryStats');
+        countryDiv.innerHTML = '';
+        if (data.by_country) {
+            Object.entries(data.by_country).forEach(([code, val]) => {
+                countryDiv.innerHTML += `<div>${code}: $${Number(val).toFixed(2)}</div>`;
+            });
+        }
+
+        // График (Vendor)
+        const canvas = document.getElementById('vendorChart');
+        if (canvas && data.by_vendor) {
+            const ctx = canvas.getContext('2d');
+            if (currentChart) currentChart.destroy();
+
+            currentChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(data.by_vendor),
+                    datasets: [{
+                        data: Object.values(data.by_vendor),
+                        backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
+                    }]
+                },
+                options: { 
+                    responsive: true,
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+    }
+
+    function closeDetails() {
+        document.getElementById('artistDetailPanel').style.display = 'none';
+    }
+
+    // Поиск по таблице (рабочий)
+    document.getElementById('tableSearch')?.addEventListener('input', function() {
+        const value = this.value.toLowerCase();
+        document.querySelectorAll('#analyticsTable tbody tr').forEach(row => {
+            row.style.display = row.textContent.toLowerCase().includes(value) ? '' : 'none';
+        });
+    });
+    
+    // Переименование (рабочий)
+    function toggleRename(id) {
+        const viewMode = document.getElementById(`view-mode-${id}`);
+        const editMode = document.getElementById(`edit-mode-${id}`);
+        if (!viewMode || !editMode) return;
+        const isView = viewMode.style.display !== 'none';
+        viewMode.style.display = isView ? 'none' : 'block';
+        editMode.style.display = isView ? 'block' : 'none';
+        if (!isView) editMode.querySelector('input')?.focus();
+    }
+
+    // Полная инспекция объекта
+    console.group("=== ДИАГНОСТИКА ДАННЫХ ===");
+    console.log("1. Тип artistDetails:", typeof artistDetails);
+    console.log("2. Количество ключей:", Object.keys(artistDetails).length);
+    console.log("3. Первые 5 ключей:", Object.keys(artistDetails).slice(0, 5));
+
+    // Проверка конкретного артиста (если он есть в таблице)
+    const testName = "fenekot";
+    if (artistDetails[testName]) {
+        console.log(`✅ Тест: '${testName}' найден!`);
+    } else {
+        console.warn(`❌ Тест: '${testName}' НЕ найден в объекте.`);
+        
+        // Ищем похожие (может там скрытый символ или другой регистр?)
+        const similar = Object.keys(artistDetails).find(k => k.toLowerCase().includes(testName.toLowerCase()));
+        if (similar) {
+            console.log(`🔍 Найдено похожее: '${similar}' (длина ${similar.length})`);
+        }
+    }
+    console.groupEnd();
+
+    let sortDirections = [true, true, true, true];
+
+    let currentSortColumn = -1; 
+
+    function sortTable(columnIndex, type) {
+        const table = document.getElementById("analyticsTable");
+        const tbody = table.querySelector("tbody");
+        const rows = Array.from(tbody.querySelectorAll("tr"));
+        
+        // Если кликнули на НОВУЮ колонку
+        if (currentSortColumn !== columnIndex) {
+            // Если Артист (0), то true (A-Я). Если цифры, то false (Max-Min).
+            sortDirections[columnIndex] = (columnIndex === 0); 
+            currentSortColumn = columnIndex;
+        } else {
+            sortDirections[columnIndex] = !sortDirections[columnIndex];
+        }
+
+        const isAscending = sortDirections[columnIndex];
+
+        const sortedRows = rows.sort((a, b) => {
+            // Очистка данных для сравнения
+            let valA = a.cells[columnIndex].innerText.replace('$', '').replace(/\s/g, '').replace(',', '').trim();
+            let valB = b.cells[columnIndex].innerText.replace('$', '').replace(/\s/g, '').replace(',', '').trim();
+
+            if (type === 'number') {
+                return isAscending ? parseFloat(valA) - parseFloat(valB) : parseFloat(valB) - parseFloat(valA);
+            } else {
+                // Для текста используем локальное сравнение (учитывает регистр и язык)
+                return isAscending ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+        });
+
+        tbody.innerHTML = "";
+        sortedRows.forEach(row => tbody.appendChild(row));
+
+        // Обновляем иконки через твою функцию
+        updateSortIcons(columnIndex, isAscending);
+    }
+
+    const iconUp = `<svg class="sort-icon" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>`;
+    const iconDown = `<svg class="sort-icon" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>`;
+    const iconNeutral = `<svg class="sort-icon" viewBox="0 0 24 24"><path d="M12 5l-5 5h10l-5-5zm0 14l5-5H7l5 5z"/></svg>`;
+    function updateSortIcons(activeIndex, isAscending) {
+        const headers = document.querySelectorAll("#analyticsTable th");
+        
+        headers.forEach((th, idx) => {
+            const iconSlot = th.querySelector(".icon-slot");
+            if (!iconSlot) return;
+
+            if (idx === activeIndex) {
+                th.classList.add('active-sort');
+                
+                // ЛОГИКА ОТОБРАЖЕНИЯ:
+                if (idx === 0) {
+                    // Для Артистов: если А-Я (true), рисуем стрелку ВНИЗ
+                    iconSlot.innerHTML = isAscending ? iconDown : iconUp;
+                } else {
+                    // Для цифр: если Max-Min (false), рисуем стрелку ВНИЗ
+                    iconSlot.innerHTML = isAscending ? iconUp : iconDown;
+                }
+            } else {
+                th.classList.remove('active-sort');
+                iconSlot.innerHTML = iconNeutral;
+            }
+        });
+    }
+    document.getElementById('upload-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const fileInput = this.querySelector('input[type="file"]');
+        if (!fileInput.files.length) return;
+        
+        const fileName = fileInput.files[0].name;
+        const reportList = document.querySelector('.report-list');
+
+        // 1. Создаем структуру, идентичную Django-шаблону
+        const tempId = 'temp-' + Date.now();
+        const tempHtml = `
+            <div class="report-item is-loading" id="${tempId}">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <strong style="display: block; font-size: 0.85rem; color: var(--text-muted); word-break: break-all; overflow-wrap: break-word; line-height: 1.2;">
+                        ${fileName}
+                    </strong>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div class="mini-loader" style="font-size: 0.8rem; color: #f59e0b;">
+                            <span class="spinner"></span> Анализ...
+                        </div>
+                        <span style="font-size: 0.8rem; color: #ef4444; opacity: 0.6; font-weight: 600;">Загрузка...</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Добавляем в начало списка
+        if (reportList.querySelector('p')) { // Если был текст "нет отчетов", убираем его
+            reportList.innerHTML = tempHtml;
+        } else {
+            reportList.insertAdjacentHTML('afterbegin', tempHtml);
+        }
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', this.action, true);
+        
+        // Добавляем заголовок, чтобы Django понял, что это AJAX (для JsonResponse)
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        
+        xhr.onload = function() {
+            if (xhr.status === 200 || xhr.status === 201) {
+                // Как только сервер ответил, что запись в БД создана и поток запущен
+                // лучше всего ПЕРЕЗАГРУЗИТЬ страницу. 
+                // Это заменит "фейковый" элемент на настоящий с рабочими кнопками и ID.
+                window.location.reload();
+            } else {
+                alert('Ошибка при загрузке файла.');
+                document.getElementById(tempId).remove();
+            }
+        };
+        
+        xhr.send(formData);
+    });
+    
+    function handleServerResponse(response) {
+        // Тут логика обновления списка отчетов без перезагрузки
+        // Можно просто добавить новый элемент в DOM или вывести уведомление
+        alert("Анализ завершен! Новый отчет появился в списке.");
+        location.reload(); // Или fetch списка отчетов
+    }
+    document.addEventListener('keydown', function(event) {
+        // Проверяем, нажата ли клавиша Escape
+        if (event.key === 'Escape') {
+            const panel = document.getElementById('artistDetailPanel');
+            // Закрываем панель, только если она в данный момент открыта
+            if (panel && panel.style.display !== 'none') {
+                closeDetails();
+            }
+        }
+    });
+    function checkProcessingReports() {
+        const processingItems = document.querySelectorAll('.is-loading');
+        
+        if (processingItems.length > 0) {
+            fetch('/check-reports-status/')
+                .then(response => response.json())
+                .then(data => {
+                    // Если на сервере больше нет отчетов в обработке, а на странице они есть
+                    if (data.any_processing === false) {
+                        window.location.reload(); 
+                    }
+                })
+                .catch(err => console.error('Ошибка проверки статуса:', err));
+        }
+    }
+
+    // Проверяем каждые 5 секунд
+    setInterval(checkProcessingReports, 5000);
+</script>
+{% endblock %}
